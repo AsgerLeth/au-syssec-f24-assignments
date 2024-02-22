@@ -4,6 +4,7 @@ from flask import Flask, request, make_response, redirect, url_for
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from secret_data import encryption_key, secret
+import logging
 
 app = Flask(__name__)
 quotes = open('quotes.txt', 'r').readlines()
@@ -56,11 +57,17 @@ def quote():
     """Show quotes to the right users."""
     # check if an authentication token is there
     token = request.cookies.get('authtoken')
+    logging.warning("1",token, len(token))
+    logging.warning(toke)
+    logging.warning(len(token))
     if token is None:
         return redirect(url_for('index'))
     try:
         # try to decode/decrypt the token
         token = bytes.fromhex(token)
+        logging.warning("2")
+        logging.warning(token)
+        logging.warning(len(token))
         plain = decrypt(token).decode()
     except Exception as e:
         return str(e)

@@ -45,7 +45,7 @@ The next time you want to run the service, you only need to repeat step (4)
 Alternatively, we also prepared a Docker container that you can use:
 ```
 # docker build -t cbc-padding-oracle .
-# docker run -p 5000:80 cbc-padding-oracle
+# sudo docker run -p 5000:80 cbc-padding-oracle
 ```
 
 In both cases, the application is reachable at <http://localhost:5000/>.
