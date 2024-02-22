@@ -58,7 +58,7 @@ def quote():
     # check if an authentication token is there
     token = request.cookies.get('authtoken')
     logging.warning("1",token, len(token))
-    logging.warning(toke)
+    logging.warning(token)
     logging.warning(len(token))
     if token is None:
         return redirect(url_for('index'))
