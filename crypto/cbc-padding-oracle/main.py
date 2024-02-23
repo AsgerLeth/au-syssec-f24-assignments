@@ -26,11 +26,14 @@ def encrypt(message: bytes) -> bytes:
 def decrypt(ciphertext: bytes) -> bytes:
     """Decrypt a ciphertext using our encryption key."""
     # the IV is stored in the first 16 B of the ciphertext
+    logging.warning("Decrypt")
+    logging.warning(len(ciphertext))
     iv = ciphertext[:16]
     aes = AES.new(encryption_key, AES.MODE_CBC, iv=iv)
     # decrypt the ciphertext
     plaintext = aes.decrypt(ciphertext[16:])
     # remove the padding of the plaintext
+    logging.warning(plaintext)
     message = unpad(plaintext, 16)
     return message
 

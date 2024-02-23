@@ -18,19 +18,22 @@ def oracle(url, ciphertext):
 
                 results = [a ^ b for a,b in zip(bytes.fromhex(block), padding_iv)]
                 #print(type(results), type(padding_iv))
-                authtoken = [a^b for a,b in zip(results, padding_iv)]
+                #authtoken = [a^b for a,b in zip(results, padding_iv)]
                 #print(authtoken)
-                authtoken = ''.join(hex(i)[2:].zfill(2) for i in authtoken)
-
-                print(len(authtoken))
+                authtoken = ''.join(hex(i)[2:].zfill(2) for i in results)
+                #authtoken = authtoken + ''.join(i[2:].zfill(2) for i in block)
+                #print(len(authtoken), authtoken)
+                #temp = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
+                #print(len(block))
+                print(authtoken)
+                print(block)
+                print(len(bytes.fromhex(authtoken)))
                 respone = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken})
                 print(respone.text)
                 #print(len(authtoken))
                 if respone.text != "Padding is incorrect.": # IF the padding is correct then we can break
                     zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
                     break
-                
-        
     return zero_iv
     #iv = Blocks[0] # The first block is the IV
 
