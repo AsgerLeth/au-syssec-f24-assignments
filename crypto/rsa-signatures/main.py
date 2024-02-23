@@ -36,13 +36,11 @@ def verify(message: bytes, signature: bytes) -> bool:
     # interpret the bytes of the message and the signature as integers stored
     # in big-endian byte order
     m = int.from_bytes(message, 'big')
-    print("m", m)
     s = int.from_bytes(signature, 'big')
     if not 0 <= m < N or not 0 <= s < N:
         raise ValueError('message or signature too large')
     # verify the signature
     mm = pow(s, e, N)
-    print("mm",mm)
     return m == mm
 
 
