@@ -4,17 +4,20 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Cipher import AES
 
 def oracle(url, ciphertext):
-    blocks = [ciphertext[i:i+16] for i in range(0, len(ciphertext), 16)] # Split the ciphertext into blocks
+    #blocks = [ciphertext[i:i+16] for i in range(0, len(ciphertext), 16)] # Split the ciphertext into blocks
+    blocks = [ciphertext[i:i+32] for i in range(0, len(ciphertext), 32)]
     zero_iv = [0] * 16 # Create a zero IV
 
     for i in range(1, len(blocks)):
         block = blocks[i]
         #print(len(blocks))
         for pad_val in range(1,17):
-            padding_iv = [pad_val ^ b for b in zero_iv] # Create the padding IV
+            padding_iv = [pad_val ^ b for b in zero_iv]
+            #padding_iv = [pad_val ^ b for b in zero_iv] # Create the padding IV
             
             for candidate in range(256):
                 padding_iv[-pad_val] = candidate
+                print("padding_iv", padding_iv)
 
                 results = [a ^ b for a,b in zip(bytes.fromhex(block), padding_iv)]
                 #print(type(results), type(padding_iv))
@@ -25,10 +28,15 @@ def oracle(url, ciphertext):
                 #print(len(authtoken), authtoken)
                 #temp = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
                 #print(len(block))
-                print(authtoken)
-                print(block)
-                print(len(bytes.fromhex(authtoken)))
-                respone = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken})
+                print("authtoken", authtoken)
+                print("block", block)
+                #print("padding_iv", padding_iv)
+                print("lenght of authtoken", len(bytes.fromhex(authtoken)))
+                print("lenght of block", len(bytes.fromhex(block)))
+                #padding_iv_str = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
+                #print("padding_iv_str", padding_iv_str)
+                #print("lenght of padding_iv_str in bytes", len(bytes.fromhex(padding_iv_str)))
+                respone = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken + block})
                 print(respone.text)
                 #print(len(authtoken))
                 if respone.text != "Padding is incorrect.": # IF the padding is correct then we can break
