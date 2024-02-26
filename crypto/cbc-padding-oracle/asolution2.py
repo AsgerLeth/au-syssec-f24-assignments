@@ -17,7 +17,7 @@ def oracle(url, ciphertext):
             
             for candidate in range(256):
                 padding_iv[-pad_val] = candidate
-                print("padding_iv", padding_iv)
+                #print("padding_iv", padding_iv)
 
                 results = [a ^ b for a,b in zip(bytes.fromhex(block), padding_iv)]
                 #print(type(results), type(padding_iv))
@@ -28,20 +28,29 @@ def oracle(url, ciphertext):
                 #print(len(authtoken), authtoken)
                 #temp = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
                 #print(len(block))
-                print("authtoken", authtoken)
-                print("block", block)
+                #print("authtoken", authtoken)
+                #print("block", block)
                 #print("padding_iv", padding_iv)
-                print("lenght of authtoken", len(bytes.fromhex(authtoken)))
-                print("lenght of block", len(bytes.fromhex(block)))
+                #print("lenght of authtoken", len(bytes.fromhex(authtoken)))
+                #print("lenght of block", len(bytes.fromhex(block)))
                 #padding_iv_str = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
                 #print("padding_iv_str", padding_iv_str)
                 #print("lenght of padding_iv_str in bytes", len(bytes.fromhex(padding_iv_str)))
-                respone = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken + block})
-                print(respone.text)
+                response = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken + block})
+                #print(candidate)
+                print(response.text)
                 #print(len(authtoken))
-                if respone.text != "Padding is incorrect.": # IF the padding is correct then we can break
+                if response.text != "Padding is incorrect." and response.text != "PKCS#7 padding is incorrect.": # IF the padding is correct then we can break
                     zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
+                    print(response.text)
+                    print("Hest")
                     break
+        print("done nr.", i)
+    print("zero_iv",zero_iv)
+    print("lenght of zero_iv",len(zero_iv))
+    print("zeroiv_bytes",bytes(zero_iv))
+    print("lenght of bytes",len(bytes(zero_iv)))
+    print("Return")
     return zero_iv
     #iv = Blocks[0] # The first block is the IV
 
