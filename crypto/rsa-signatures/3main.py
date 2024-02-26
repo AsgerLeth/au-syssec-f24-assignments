@@ -17,24 +17,60 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 app = Flask(__name__)
 quotes = open('quotes.txt', 'r').readlines()
-print("New version")
-def generate_large_prime(n_bits):
-    random_int = secrets.randbits(n_bits)
-    # Ensure the random number is odd to increase the chance it's prime
-    random_int |= 1
-    return nextprime(random_int)
-
-def generate_rsa_keypair(key_size=3072):
-    p = generate_large_prime(key_size // 2)
-    q = generate_large_prime(key_size // 2)
+def generate_rsa_keypair(key_size):
+    # Step 1: Generate two distinct prime numbers p and q.
+    half_key_size = key_size // 2
+    p = randprime(2**(half_key_size - 1), 2**half_key_size)
+    q = nextprime(p)
+    
+    # Ensure p and q are distinct
     while q == p:
-        q = generate_large_prime(key_size // 2)
+        q = nextprime(q)
+    
+    # Step 2: Compute n = pq and phi = (p-1)(q-1)
     n = p * q
-    phi = (p-1) * (q-1)
+    phi = (p - 1) * (q - 1)
+    
+    # Step 3: Choose e
     e = 65537  # Common choice for e
+    
+    # Step 4: Compute d, the mod inverse of e
     d = pow(e, -1, phi)
-    return ((e, n), (d, n)) 
+    
+    # The public key is (e, n) and the private key is (d, n)
+    return ((e, n), (d, n))
+key_size = 2048  # Use a secure key size
+public_key, private_key = generate_rsa_keypair(key_size)
+
+# Convert private and public keys into a format usable by the cryptography library
+
+
+private_key_cryptography = rsa.RSAPrivateNumbers(
+    p=private_key[0], q=private_key[1],
+    d=private_key[2], dmp1=private_key[3],
+    dmq1=private_key[4], iqmp=private_key[5],
+    public_numbers=rsa.RSAPublicNumbers(e=public_key[0], n=public_key[1])
+).private_key(default_backend())
+
+public_key_cryptography = private_key_cryptography.public_key()
+
+
+
+def pss_encode(message, private_key):
+    """Encode a message using RSA-PSS."""
+    # Using SHA-256 and MGF1 padding as specified, with a 32-byte salt length
+    pss_padding = padding.PSS(
+        mgf=padding.MGF1(hashes.SHA256()),
+        salt_length=32
+    )
+    signature = private_key.sign(
+        message,
+        pss_padding,
+        hashes.SHA256()
+    )
+    return signature
 def mgf1(input_bytes, length, hash_class=hashlib.sha256):
+    """Mask Generation Function based on a hash function."""
     counter = 0
     output_bytes = b''
     while len(output_bytes) < length:
@@ -42,75 +78,55 @@ def mgf1(input_bytes, length, hash_class=hashlib.sha256):
         output_bytes += hash_class(input_bytes + C).digest()
         counter += 1
     return output_bytes[:length]
-def hash_message(message, hash_class=hashlib.sha256):
-    return hash_class(message).digest()
 
-def pss_encode(message, salt_length=32):
-    hash_len = hashlib.sha256().digest_size
-    salt = secrets.token_bytes(salt_length)
-    m_hash = hash_message(message)
-    
-    # Prepare the data block for masking
-    M_prime = b'\x00' * 8 + m_hash + salt
-    H = hash_message(M_prime)
-    PS = b'\x00' * (salt_length + hash_len + 2 - hash_len - 2)
-    DB = PS + b'\x01' + salt
-    
-    # Generate mask and apply it to the DB
-    db_mask = mgf1(H, salt_length + hash_len + 2 - hash_len - 1)
-    masked_DB = bytes([db ^ mask for db, mask in zip(DB, db_mask)])
-    
-    # Concatenate masked DB, hash, and the trailer byte
-    EM = masked_DB + H + b'\xbc'
-    return EM
-def pss_verify(signature, message, public_key, salt_length=32):
-    hash_len = hashlib.sha256().digest_size
-    m_hash = hash_message(message)
-    
-    # Decrypt the signature to get the encoded message (EM)
-    # Assuming `public_key` is a tuple (e, n) and `signature` is an integer
-    EM = pow(signature, public_key[0], public_key[1])
-    
-    # Convert EM back to bytes
-    EM_bytes = EM.to_bytes(public_key[1].bit_length() // 8, byteorder='big')
-    
-    # Extract the components from EM
-    masked_DB = EM_bytes[:-hash_len-1]
-    H = EM_bytes[-hash_len-1:-1]
-    trailer = EM_bytes[-1]
-    if trailer != 0xbc:
-        return False
-    
-    # Generate DB mask using H
-    db_mask = mgf1(H, len(masked_DB))
-    DB = bytes([masked ^ mask for masked, mask in zip(masked_DB, db_mask)])
-    
-    # Verify the padding is correct
-    padding_length = len(DB) - salt_length - 1
-    if DB[:padding_length] != b'\x00' * padding_length or DB[padding_length] != b'\x01':
-        return False
-    
-    # Extract salt and verify M'
-    salt = DB[-salt_length:]
-    M_prime = b'\x00' * 8 + m_hash + salt
-    H_verify = hash_message(M_prime)
-    
-    return H == H_verify
+def pss_verify(message, signature, public_key, salt_length=32):
+    """Verify an RSA-PSS signature."""
+    # Step 1: "Decrypt" signature to get the encoded message
+    modulus_length = len(public_key) // 8
+    encoded_message = pow(int.from_bytes(signature, byteorder='big'), public_key.public_numbers().e, public_key.public_numbers().n)
+    encoded_message_bytes = encoded_message.to_bytes(modulus_length, byteorder='big')
+
+    # Step 2: Separate the encoded message into its components
+    hash_length = hashlib.sha256().digest_size
+    DB = encoded_message_bytes[:-hash_length-1]
+    H = encoded_message_bytes[-hash_length-1:-1]
+    sentinel = encoded_message_bytes[-1]
+
+    if sentinel != 0xbc:
+        raise ValueError("Decoding error")
+
+    # Step 3: Perform MGF1 mask generation and apply mask
+    dbMask = mgf1(H, len(DB), hashlib.sha256)
+    maskedDB = bytes(x ^ y for x, y in zip(DB, dbMask))
+
+    # The padding string PS should be 0, and then a 0x01 byte before the salt
+    # Verify the PS and 0x01 separator
+    ps_index = maskedDB.index(b'\x01')
+    PS = maskedDB[:ps_index]
+    if any(x != 0 for x in PS):
+        raise ValueError("Invalid padding")
+    # Extract salt
+    salt = maskedDB[ps_index+1:]
+
+    # Step 4: Hash the message with the salt and compare it to H
+    M_prime = b'\x00' * 8 + hashlib.sha256(message).digest() + salt
+    H_prime = hashlib.sha256(M_prime).digest()
+
+    if H != H_prime:
+        raise ValueError("Signature verification failed")
+
+    return True
 
 
+def sign(message: bytes) -> bytes:
 
-def sign(message, private_key):
-    encoded_message = pss_encode(message, private_key)
-    # RSA sign the encoded message
-    # Return the signature
+    return pss_encode(message, private_key_cryptography)
 
-def verify(signature, message, public_key):
-    if pss_verify(signature, message, public_key):
-        # Message verified successfully
-        return True
-    else:
-        # Verification failed
-        return False
+
+def verify(message: bytes, signature: bytes) -> bool:
+    
+    return pss_verify(message, signature, public_key_cryptography)
+
 
 def json_to_cookie(j: str) -> str:
     """Encode json data in a cookie-friendly way using base64."""
