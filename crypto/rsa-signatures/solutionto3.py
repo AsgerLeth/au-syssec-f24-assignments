@@ -2,28 +2,57 @@ import hashlib
 from math import ceil
 import random
 import sympy
+import os
 
 
-def generate_rsa_keypair(keysize):
-    # Generate two prime numbers p and q
-    p = sympy.nextprime(random.getrandbits(keysize // 2))
-    q = sympy.nextprime(random.getrandbits(keysize // 2))
+# def generate_rsa_keypair(keysize):
+#     # Generate two prime numbers p and q
+#     p = sympy.nextprime(random.getrandbits(keysize // 2))
+#     q = sympy.nextprime(random.getrandbits(keysize // 2))
+#     n = p * q
+#     phi = (p - 1) * (q - 1)
+    
+
+#     # Choose an integer e such that e and phi(n) are coprime
+#     e = 65537
+
+#     # Compute d, the mod inverse of e
+#     d = pow(e, -1, phi)
+
+#     # Return the public and private keys
+#     # Public key is (n, e) and private key is (n, d)
+#     return (n, e), (n, d)
+
+def generate_rsa_keypair():
+    # Generate two prime numbers p and q using a cryptographically secure random number generator
+    # Adjusted for 3072-bit RSA moduli, each prime should be approximately 1536 bits
+    bytes_per_prime = 1536 // 8  # 192 bytes
+    random_bits_p = os.urandom(bytes_per_prime)
+    random_bits_q = os.urandom(bytes_per_prime)
+    p = sympy.nextprime(int.from_bytes(random_bits_p, byteorder='big'))
+    q = sympy.nextprime(int.from_bytes(random_bits_q, byteorder='big'))
+    
+    # Ensure p and q are distinct
+    while p == q:
+        random_bits_q = os.urandom(bytes_per_prime)
+        q = sympy.nextprime(int.from_bytes(random_bits_q, byteorder='big'))
+    
     n = p * q
     phi = (p - 1) * (q - 1)
-
+    
     # Choose an integer e such that e and phi(n) are coprime
     e = 65537
-
+    
     # Compute d, the mod inverse of e
     d = pow(e, -1, phi)
-
+    
     # Return the public and private keys
     # Public key is (n, e) and private key is (n, d)
     return (n, e), (n, d)
 
+
 # Generate an RSA keypair with a very small key size for demonstration purposes
-keysize = 32  # Small size for demonstration, not secure
-public_key, private_key = generate_rsa_keypair(keysize)
+public_key, private_key = generate_rsa_keypair()
 
 def i2osp(i, emLen):
     """Integer to Octet String Primitive"""
@@ -98,7 +127,7 @@ def emsa_pss_verify(M, EM, emBits, sLen):
     
     # Step 4: Check if the rightmost octet of EM is 0xbc
     if EM[-1] != 0xbc:
-        print("inconsistent 4")
+        print("inconsistent 4 verify")
         return "inconsistent"
     
     # Step 5: Split EM into maskedDB and H
@@ -144,11 +173,13 @@ def verify_signature(public_key, message, signature, modBits):
     
     # Step 1: Length checking
     if len(signature) != k:
+        print("invalid signature length")
         return "invalid signature"
     
     # Step 2: RSA verification
     s = os2ip(signature)  # Convert signature to integer
     if s >= n:
+        print("invalid signature step 2")
         return "invalid signature"
     
     m = pow(s, e, n)  # RSA verification primitive
@@ -156,21 +187,22 @@ def verify_signature(public_key, message, signature, modBits):
     EM = i2osp(m, emLen)  # Convert message representative to encoded message
     
     # Step 3: EMSA-PSS verification
-    result = emsa_pss_verify(message, EM, modBits - 1)
+    result = emsa_pss_verify(message, EM, modBits - 1, sLen=32)
     if result == "consistent":
         return "valid signature"
     else:
+        print("invalid signature step 3")
         return "invalid signature"
 
 
 
 message = b"Hel"
-emBits = public_key[0] - 1  # Effective modulus bits
+emBits = public_key[0].bit_length() - 1  # Effective modulus bits
 print("efter embits")
 encoded_message = emsa_pss_encode(message, emBits)
 print("efter encoded")
 s = os2ip(encoded_message)
 print("efter s")
 signature = i2osp(s, len(encoded_message))
-verification_result = emsa_pss_verify(message, encoded_message, emBits, sLen=32)
-print("result:", verification_result)
+signatureres = verify_signature(public_key, message, signature, emBits)
+print("signatureres", signatureres)
