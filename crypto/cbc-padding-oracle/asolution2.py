@@ -38,12 +38,11 @@ def oracle(url, ciphertext):
                 #print("lenght of padding_iv_str in bytes", len(bytes.fromhex(padding_iv_str)))
                 response = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken + block})
                 #print(candidate)
-                print(response.text)
+                #print(response.text)
                 #print(len(authtoken))
-                if response.text != "Padding is incorrect." and response.text != "PKCS#7 padding is incorrect.": # IF the padding is correct then we can break
+                if response.text != "Padding is incorrect." and response.text != "PKCS#7 padding is incorrect." and not response.text.startswith("'utf-8' codec can't decode byte"): # IF the padding is correct then we can break
                     zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
-                    print(response.text)
-                    print("Hest")
+                    print("IF",response.text)
                     break
         print("done nr.", i)
     print("zero_iv",zero_iv)
