@@ -24,10 +24,8 @@ def generate_rsa_keypair():
     n = p * q
     phi = (p - 1) * (q - 1)
     
-    # Choose an integer e such that e and phi(n) are coprime
     e = 65537
-    
-    # Compute d, the mod inverse of e
+    e
     d = pow(e, -1, phi)
     
     # Return the public and private keys
@@ -62,29 +60,22 @@ def mgf1(mgfSeed, maskLen, hash_func=hashlib.sha256):
     return T[:maskLen]
 
 def emsa_pss_encode(M, emBits, sLen = 32, maskGenFunc=mgf1, hash=hashlib.sha256):
-    print("encode1")
     emLen = ceil(emBits/8)
     mHash = hash(M).digest()
     hLen = len(mHash)
     if emLen < hLen + 2 + 8:
         raise ValueError("encoding error")
-    print("encode2")    
     salt = i2osp(random.getrandbits(8*sLen), sLen)
     M_prime = b"\x00"*8 + mHash + salt
     H = hash(M_prime).digest()
-    print("encode3")
     assert len(H) == hLen
     PS = b"\x00"*(emLen-sLen-hLen-2)
     DB = PS + b"\x01" + salt
     assert len(DB) == emLen-hLen-1
-    print("encode4")
-    print("længde" , emLen-hLen-1)
     dbMask = maskGenFunc(H, emLen-hLen-1)
-    print("encode5")
     maskedDB = bytes([DB[i] ^ dbMask[i] for i in range (len(dbMask))])
     maskedDB = int.to_bytes(maskedDB[0] & (0xff >> (8*emLen - emBits))) + maskedDB[1:]
     EM = maskedDB + H + b"\xbc"
-    print("encode6")
     print("em_pss", EM)
     return EM
 
@@ -120,34 +111,26 @@ def emsa_pss_verify(M, EM, emBits, sLen):
     H = EM[emLen - hLen - 1:-1]
     
     # Step 6: Check the leftmost 8emLen - emBits bits
-    #if maskedDB[0] & (0xFF >> (emBits % 8)) != 0:
-    #    print("inconsistent 6")
-    #    return "inconsistent"
     numZeroBits = 8 * emLen - emBits
-    # Extract the first octet of maskedDB
+    # Extracting the first octet of maskedDB
     firstOctet = maskedDB[0]
-    # Create a mask to check the leftmost numZeroBits are zero
-    # For example, if numZeroBits is 3, mask would be 0b11100000 (binary)
+    # Creating a mask to check the leftmost numZeroBits are zero
     mask = (1 << numZeroBits) - 1 << (8 - numZeroBits)
-    # Apply the mask to the first octet and check if the result is zero
+    # Applying the mask to the first octet and checks if the result is zero
     if firstOctet & mask != 0:
         return "inconsistent"
     # Step 7 & 8: Generate dbMask and compute DB
     dbMask = mgf1(H, emLen - hLen - 1)
     DB = bytes(x ^ y for x, y in zip(maskedDB, dbMask))
-    
     # Step 9: Set leftmost bits of DB to zero
     first_byte_mask = (1 << (8 - emBits % 8)) - 1
     DB = bytes([DB[0] & first_byte_mask]) + DB[1:]
-    
     # Step 10: Check the padding in DB
     if DB[:emLen - hLen - sLen - 2] != b'\x00' * (emLen - hLen - sLen - 2) or DB[emLen - hLen - sLen - 2] != 0x01:
         print("inconsistent 10")
         return "inconsistent"
-    
     # Step 11: Extract the salt from DB
     salt = DB[-sLen:]
-    
     # Step 12 & 13: Compute H' and compare with H
     M_prime = b'\x00'*8 + mHash + salt
     H_prime = hash_func(M_prime).digest()
@@ -163,18 +146,15 @@ def emsa_pss_verify(M, EM, emBits, sLen):
 def verify_signature(public_key, message, signature, modBits):
     n, e = public_key
     k = len(signature)
-    
     # Step 1: Length checking
     if len(signature) != k:
         print("invalid signature length")
         return "invalid signature"
-    
     # Step 2: RSA verification
     s = os2ip(signature)  # Convert signature to integer
     if s >= n:
         print("invalid signature step 2")
         return "invalid signature"
-    
     m = pow(s, e, n)  # RSA verification primitive
     emLen = ceil(((modBits - 1) / 8))
     #print("emlen", emLen)
@@ -187,8 +167,6 @@ def verify_signature(public_key, message, signature, modBits):
     else:
         print("invalid signature step 3")
         return "invalid signature"
-
-
 
 message = b"Hel"
 emBits = public_key[0].bit_length() - 1  # Effective modulus bits
