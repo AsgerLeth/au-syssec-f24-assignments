@@ -1,5 +1,4 @@
 import base64
-import hashlib
 import json
 import math
 import secrets
@@ -7,110 +6,43 @@ import string
 from urllib.parse import quote as url_quote
 from flask import Flask, request, make_response, redirect, url_for
 from secret_data import rsa_key
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import rsa
-from sympy import nextprime, randprime
-import random
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
 
 app = Flask(__name__)
 quotes = open('quotes.txt', 'r').readlines()
-print("New version")
-def generate_large_prime(n_bits):
-    random_int = secrets.randbits(n_bits)
-    # Ensure the random number is odd to increase the chance it's prime
-    random_int |= 1
-    return nextprime(random_int)
-
-def generate_rsa_keypair(key_size=3072):
-    p = generate_large_prime(key_size // 2)
-    q = generate_large_prime(key_size // 2)
-    while q == p:
-        q = generate_large_prime(key_size // 2)
-    n = p * q
-    phi = (p-1) * (q-1)
-    e = 65537  # Common choice for e
-    d = pow(e, -1, phi)
-    return ((e, n), (d, n)) 
-def mgf1(input_bytes, length, hash_class=hashlib.sha256):
-    counter = 0
-    output_bytes = b''
-    while len(output_bytes) < length:
-        C = counter.to_bytes(4, byteorder='big')
-        output_bytes += hash_class(input_bytes + C).digest()
-        counter += 1
-    return output_bytes[:length]
-def hash_message(message, hash_class=hashlib.sha256):
-    return hash_class(message).digest()
-
-def pss_encode(message, salt_length=32):
-    hash_len = hashlib.sha256().digest_size
-    salt = secrets.token_bytes(salt_length)
-    m_hash = hash_message(message)
-    
-    # Prepare the data block for masking
-    M_prime = b'\x00' * 8 + m_hash + salt
-    H = hash_message(M_prime)
-    PS = b'\x00' * (salt_length + hash_len + 2 - hash_len - 2)
-    DB = PS + b'\x01' + salt
-    
-    # Generate mask and apply it to the DB
-    db_mask = mgf1(H, salt_length + hash_len + 2 - hash_len - 1)
-    masked_DB = bytes([db ^ mask for db, mask in zip(DB, db_mask)])
-    
-    # Concatenate masked DB, hash, and the trailer byte
-    EM = masked_DB + H + b'\xbc'
-    return EM
-def pss_verify(signature, message, public_key, salt_length=32):
-    hash_len = hashlib.sha256().digest_size
-    m_hash = hash_message(message)
-    
-    # Decrypt the signature to get the encoded message (EM)
-    # Assuming `public_key` is a tuple (e, n) and `signature` is an integer
-    EM = pow(signature, public_key[0], public_key[1])
-    
-    # Convert EM back to bytes
-    EM_bytes = EM.to_bytes(public_key[1].bit_length() // 8, byteorder='big')
-    
-    # Extract the components from EM
-    masked_DB = EM_bytes[:-hash_len-1]
-    H = EM_bytes[-hash_len-1:-1]
-    trailer = EM_bytes[-1]
-    if trailer != 0xbc:
-        return False
-    
-    # Generate DB mask using H
-    db_mask = mgf1(H, len(masked_DB))
-    DB = bytes([masked ^ mask for masked, mask in zip(masked_DB, db_mask)])
-    
-    # Verify the padding is correct
-    padding_length = len(DB) - salt_length - 1
-    if DB[:padding_length] != b'\x00' * padding_length or DB[padding_length] != b'\x01':
-        return False
-    
-    # Extract salt and verify M'
-    salt = DB[-salt_length:]
-    M_prime = b'\x00' * 8 + m_hash + salt
-    H_verify = hash_message(M_prime)
-    
-    return H == H_verify
 
 
+def sign(message: bytes) -> bytes:
+    """Sign a message using our private key."""
+    # modulus and private exponent
+    N = rsa_key['_n']
+    d = rsa_key['_d']
+    # interpret the bytes of the message as an integer stored in big-endian
+    # byte order
+    m = int.from_bytes(message, 'big')
+    if not 0 <= m < N:
+        raise ValueError('message too large')
+    # compute the signature
+    s = pow(m, d, N)
+    # encode the signature into a bytes using big-endian byte order
+    signature = s.to_bytes(math.ceil(N.bit_length() / 8), 'big')
+    return signature
 
-def sign(message, private_key):
-    encoded_message = pss_encode(message, private_key)
-    # RSA sign the encoded message
-    # Return the signature
 
-def verify(signature, message, public_key):
-    if pss_verify(signature, message, public_key):
-        # Message verified successfully
-        return True
-    else:
-        # Verification failed
-        return False
+def verify(message: bytes, signature: bytes) -> bool:
+    """Verify a signature using our public key."""
+    # modulus and private exponent
+    N = rsa_key['_n']
+    e = rsa_key['_e']
+    # interpret the bytes of the message and the signature as integers stored
+    # in big-endian byte order
+    m = int.from_bytes(message, 'big')
+    s = int.from_bytes(signature, 'big')
+    if not 0 <= m < N or not 0 <= s < N:
+        raise ValueError('message or signature too large')
+    # verify the signature
+    mm = pow(s, e, N)
+    return m == mm
+
 
 def json_to_cookie(j: str) -> str:
     """Encode json data in a cookie-friendly way using base64."""

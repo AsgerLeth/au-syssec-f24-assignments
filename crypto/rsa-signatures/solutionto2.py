@@ -7,7 +7,7 @@ N = 3347752952664162112522016889691738562339972666836621741627714172651995325002
 e = 65537
 
 def find_m1_m2(desired_message, N):
-    m1 = "You got a 1"
+    m1 = "random"
     m1_int = int.from_bytes(m1.encode(), 'big')
     
     # Calculate m2_int
@@ -22,15 +22,13 @@ def find_m1_m2(desired_message, N):
     return m1, m2
 
 def combine_signatures(s1, s2):
-    """Combine two RSA signatures."""
-    combined = s1 * s2
+    #Combine the two RSA signatures
     return (s1 * s2) % N
 
 def get_signature_for_hex_data(hex_data):
-    """Get the signature from the server for the provided hex data."""
+    #Get the signature for the hex data
     response = requests.get(f'https://cbc-rsa.syssec.dk:8001/sign_random_document_for_students/{hex_data}/')
     if response.status_code == 200:
-        #print("got signatures")
         return response.json()['signature']
     else:
         raise ValueError('Could not get the signature from the server')
