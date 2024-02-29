@@ -7,7 +7,7 @@ N = 3347752952664162112522016889691738562339972666836621741627714172651995325002
 e = 65537
 
 def find_m1_m2(desired_message, N):
-    m1 = "You got a 1"
+    m1 = "random"
     m1_int = int.from_bytes(m1.encode(), 'big')
     
     # Calculate m2_int

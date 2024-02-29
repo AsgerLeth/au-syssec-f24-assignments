@@ -100,16 +100,6 @@ def generate_keypair(p, q):
 
 
 
-
-
-
-
-
-        
-
-
-
-
 def sign(message: bytes) -> bytes:
     """Sign a message using our private key."""
     # modulus and private exponent

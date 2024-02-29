@@ -5,23 +5,7 @@ import sympy
 import os
 
 
-# def generate_rsa_keypair(keysize):
-#     # Generate two prime numbers p and q
-#     p = sympy.nextprime(random.getrandbits(keysize // 2))
-#     q = sympy.nextprime(random.getrandbits(keysize // 2))
-#     n = p * q
-#     phi = (p - 1) * (q - 1)
-    
 
-#     # Choose an integer e such that e and phi(n) are coprime
-#     e = 65537
-
-#     # Compute d, the mod inverse of e
-#     d = pow(e, -1, phi)
-
-#     # Return the public and private keys
-#     # Public key is (n, e) and private key is (n, d)
-#     return (n, e), (n, d)
 
 def generate_rsa_keypair():
     # Generate two prime numbers p and q using a cryptographically secure random number generator
@@ -51,20 +35,18 @@ def generate_rsa_keypair():
     return (n, e), (n, d)
 
 
-# Generate an RSA keypair with a very small key size for demonstration purposes
 public_key, private_key = generate_rsa_keypair()
 
-def i2osp(i, emLen):
-    """Integer to Octet String Primitive"""
-    try:
-        # Ensure the integer fits in the specified length
-        os = i.to_bytes(emLen, byteorder='big')
-    except OverflowError:
-        return "integer too large"
-    return os
-def os2ip(os):
-    """Octet String to Integer Primitive"""
-    return int.from_bytes(os, byteorder='big')
+def i2osp(x, xLen):
+    if x >= 256 ** xLen:
+        return "integer too large", None
+
+    bytes_representation = x.to_bytes(xLen, byteorder='big')
+
+    return bytes_representation
+
+def os2ip(X):
+    return int.from_bytes(X, byteorder='big')
 
 def mgf1(mgfSeed, maskLen, hash_func=hashlib.sha256):
     hLen = hash_func().digest_size
@@ -100,18 +82,20 @@ def emsa_pss_encode(M, emBits, sLen = 32, maskGenFunc=mgf1, hash=hashlib.sha256)
     dbMask = maskGenFunc(H, emLen-hLen-1)
     print("encode5")
     maskedDB = bytes([DB[i] ^ dbMask[i] for i in range (len(dbMask))])
-    maskedDB = (maskedDB[0] & (0xff >> (8*emLen - emBits))).to_bytes(1, byteorder='big') + maskedDB[1:]
-
+    maskedDB = int.to_bytes(maskedDB[0] & (0xff >> (8*emLen - emBits))) + maskedDB[1:]
     EM = maskedDB + H + b"\xbc"
     print("encode6")
+    print("em_pss", EM)
     return EM
+
 def emsa_pss_verify(M, EM, emBits, sLen):
     """Verify an RSA-PSS signature."""
     hash_func = hashlib.sha256
     hLen = hash_func().digest_size  # Length of hash output in bytes
-    
+    print("EMverify",EM)
+
     # Step 1: Length checking for the message against hash function limitation
-    if len(M) > (2**61 - 1):
+    if len(M) > (2**256 - 1):
         print("inconsistent 1")
         return "inconsistent"
     
@@ -126,7 +110,8 @@ def emsa_pss_verify(M, EM, emBits, sLen):
         return "inconsistent"
     
     # Step 4: Check if the rightmost octet of EM is 0xbc
-    if EM[-1] != 0xbc:
+    if EM[-1] != 0xbc :
+        print("EM2",EM[-1])
         print("inconsistent 4 verify")
         return "inconsistent"
     
@@ -135,10 +120,18 @@ def emsa_pss_verify(M, EM, emBits, sLen):
     H = EM[emLen - hLen - 1:-1]
     
     # Step 6: Check the leftmost 8emLen - emBits bits
-    if maskedDB[0] & (0xFF >> (emBits % 8)) != 0:
-        print("inconsistent 6")
+    #if maskedDB[0] & (0xFF >> (emBits % 8)) != 0:
+    #    print("inconsistent 6")
+    #    return "inconsistent"
+    numZeroBits = 8 * emLen - emBits
+    # Extract the first octet of maskedDB
+    firstOctet = maskedDB[0]
+    # Create a mask to check the leftmost numZeroBits are zero
+    # For example, if numZeroBits is 3, mask would be 0b11100000 (binary)
+    mask = (1 << numZeroBits) - 1 << (8 - numZeroBits)
+    # Apply the mask to the first octet and check if the result is zero
+    if firstOctet & mask != 0:
         return "inconsistent"
-    
     # Step 7 & 8: Generate dbMask and compute DB
     dbMask = mgf1(H, emLen - hLen - 1)
     DB = bytes(x ^ y for x, y in zip(maskedDB, dbMask))
@@ -158,7 +151,7 @@ def emsa_pss_verify(M, EM, emBits, sLen):
     # Step 12 & 13: Compute H' and compare with H
     M_prime = b'\x00'*8 + mHash + salt
     H_prime = hash_func(M_prime).digest()
-    
+    print("M_prime", M_prime)
     # Step 14: Check if H matches H'
     if H == H_prime:
         print("consistent 14")
@@ -183,9 +176,10 @@ def verify_signature(public_key, message, signature, modBits):
         return "invalid signature"
     
     m = pow(s, e, n)  # RSA verification primitive
-    emLen = (modBits - 1) // 8
+    emLen = ceil(((modBits - 1) / 8))
+    #print("emlen", emLen)
     EM = i2osp(m, emLen)  # Convert message representative to encoded message
-    
+    #EM = emsa_pss_encode(message, modBits - 1, sLen=32)
     # Step 3: EMSA-PSS verification
     result = emsa_pss_verify(message, EM, modBits - 1, sLen=32)
     if result == "consistent":

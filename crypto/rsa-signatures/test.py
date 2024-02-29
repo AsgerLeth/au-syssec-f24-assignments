@@ -129,6 +129,7 @@ def sign(message: bytes) -> bytes:
     # encode the signature into a bytes using big-endian byte order
     signature = s.to_bytes(math.ceil(N.bit_length() / 8), 'big')
     return signature
+
 def generate_keypair(p, q):
     n = p * q
     phi = (p-1) * (q-1)
