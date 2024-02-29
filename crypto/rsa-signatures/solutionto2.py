@@ -22,15 +22,13 @@ def find_m1_m2(desired_message, N):
     return m1, m2
 
 def combine_signatures(s1, s2):
-    """Combine two RSA signatures."""
-    combined = s1 * s2
+    #Combine the two RSA signatures
     return (s1 * s2) % N
 
 def get_signature_for_hex_data(hex_data):
-    """Get the signature from the server for the provided hex data."""
+    #Get the signature for the hex data
     response = requests.get(f'https://cbc-rsa.syssec.dk:8001/sign_random_document_for_students/{hex_data}/')
     if response.status_code == 200:
-        #print("got signatures")
         return response.json()['signature']
     else:
         raise ValueError('Could not get the signature from the server')
