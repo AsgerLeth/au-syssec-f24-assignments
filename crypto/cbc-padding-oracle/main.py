@@ -26,14 +26,14 @@ def encrypt(message: bytes) -> bytes:
 def decrypt(ciphertext: bytes) -> bytes:
     """Decrypt a ciphertext using our encryption key."""
     # the IV is stored in the first 16 B of the ciphertext
-    logging.warning("Decrypt")
-    logging.warning(len(ciphertext))
+    #logging.warning("Decrypt")
+    #logging.warning(len(ciphertext))
     iv = ciphertext[:16]
     aes = AES.new(encryption_key, AES.MODE_CBC, iv=iv)
     # decrypt the ciphertext
     plaintext = aes.decrypt(ciphertext[16:])
     # remove the padding of the plaintext
-    logging.warning(plaintext)
+    #logging.warning(plaintext)
     message = unpad(plaintext, 16)
     return message
 
@@ -60,17 +60,17 @@ def quote():
     """Show quotes to the right users."""
     # check if an authentication token is there
     token = request.cookies.get('authtoken')
-    logging.warning("1",token, len(token))
-    logging.warning(token)
-    logging.warning(len(token))
+    #logging.warning("1",token, len(token))
+    #logging.warning(token)
+    #logging.warning(len(token))
     if token is None:
         return redirect(url_for('index'))
     try:
         # try to decode/decrypt the token
         token = bytes.fromhex(token)
-        logging.warning("2")
-        logging.warning(token)
-        logging.warning(len(token))
+        #logging.warning("2")
+        #logging.warning(token)
+        #logging.warning(len(token))
         plain = decrypt(token).decode()
     except Exception as e:
         return str(e)

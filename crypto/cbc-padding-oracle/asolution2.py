@@ -5,13 +5,14 @@ from Crypto.Cipher import AES
 
 def oracle(url, ciphertext):
     #blocks = [ciphertext[i:i+16] for i in range(0, len(ciphertext), 16)] # Split the ciphertext into blocks
-    blocks = [ciphertext[i:i+32] for i in range(0, len(ciphertext), 32)]
-    zero_iv = [0] * 16 # Create a zero IV
-
-    for i in range(1, len(blocks)):
-        block = blocks[i]
+    block_size = 16
+    blocks = [ciphertext[i:i+block_size] for i in range(0, len(ciphertext), block_size)]
+    result = b''
+    iv = blocks[0] # IV is the first block
+    for block in blocks[1:]:
+        zero_iv = [0] * 16 # Create a zero IV
         #print(len(blocks))
-        for pad_val in range(1,17):
+        for pad_val in range(1,block_size+1):
             padding_iv = [pad_val ^ b for b in zero_iv]
             #padding_iv = [pad_val ^ b for b in zero_iv] # Create the padding IV
             
@@ -19,46 +20,51 @@ def oracle(url, ciphertext):
                 padding_iv[-pad_val] = candidate
                 #print("padding_iv", padding_iv)
 
-                results = [a ^ b for a,b in zip(bytes.fromhex(block), padding_iv)]
-                #print(type(results), type(padding_iv))
-                #authtoken = [a^b for a,b in zip(results, padding_iv)]
-                #print(authtoken)
-                authtoken = ''.join(hex(i)[2:].zfill(2) for i in results)
-                #authtoken = authtoken + ''.join(i[2:].zfill(2) for i in block)
-                #print(len(authtoken), authtoken)
-                #temp = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
-                #print(len(block))
-                #print("authtoken", authtoken)
-                #print("block", block)
-                #print("padding_iv", padding_iv)
-                #print("lenght of authtoken", len(bytes.fromhex(authtoken)))
-                #print("lenght of block", len(bytes.fromhex(block)))
-                #padding_iv_str = ''.join(hex(i)[2:].zfill(2) for i in padding_iv)
-                #print("padding_iv_str", padding_iv_str)
-                #print("lenght of padding_iv_str in bytes", len(bytes.fromhex(padding_iv_str)))
-                response = requests.get(f'{url}/quote/', cookies={'authtoken': authtoken + block})
-                #print(candidate)
-                #print(response.text)
-                #print(len(authtoken))
-                if response.text != "Padding is incorrect." and response.text != "PKCS#7 padding is incorrect." and not response.text.startswith("'utf-8' codec can't decode byte"): # IF the padding is correct then we can break
-                    zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
+                #results = [a ^ b for a,b in zip(block, bytes(padding_iv))]
+                #authtoken = ''.join(hex(i)[2:].zfill(2) for i in results)
+                response = requests.get(f'{url}/quote/', cookies={'authtoken': (bytes(padding_iv) + block).hex()} )
+                #response = requests.get(f'{url}/quote/', cookies={'authtoken': (bytes(padding_iv) + block).hex()}) #"No quote for you!" in response.text or 
+                temp = None
+                if response.text.__contains__("PKCS#7 padding is incorrect") or response.text.__contains__("Padding is incorrect."):
+                    temp = False
+                else:
+                    temp = True
+                if temp: # IF the padding is correct then we can break
+                    #zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
                     print("IF",response.text)
+                    if pad_val == 1:
+                        # make sure the padding really is of length 1 by changing
+                        # the penultimate block and querying the oracle again
+                        padding_iv[-2] ^= 1
+                        response = requests.get(f'{url}/quote/', cookies={'authtoken': (bytes(padding_iv) + block).hex()})
+                        if response.text.__contains__("PKCS#7 padding is incorrect") or response.text.__contains__("Padding is incorrect."):
+                            temp = False
+                        else:
+                            temp = True
+                        if not temp: #"No quote for you!" in response.text or 
+                            continue  # false positive; keep searching
                     break
-        print("done nr.", i)
-    print("zero_iv",zero_iv)
-    print("lenght of zero_iv",len(zero_iv))
-    print("zeroiv_bytes",bytes(zero_iv))
-    print("lenght of bytes",len(bytes(zero_iv)))
-    print("Return")
-    return zero_iv
-    #iv = Blocks[0] # The first block is the IV
+            else:
+                raise Exception("no valid padding byte found (is the oracle working correctly?)")
+                    #break
+            zero_iv[-pad_val] = candidate ^ pad_val # Intermediary value
+        print("done")
+        pt = bytes(a ^ b for a,b in zip(iv,zero_iv))
+        result = pt + result
+        iv = block
+    return result
 
 def main():
-    cookie = requests.get('http://localhost:5000') # base_url is the first argument
+    BASE_URL = 'http://localhost:5000'
+    #BASE_URL = 'https://cbc-rsa.syssec.dk:8000/'
+    cookie = requests.get(f'{BASE_URL}') # base_url is the first argument
     cookie_header = cookie.headers.get('Set-Cookie')    
     authtoken = cookie_header.split('=')[1].split(';')[0]
-    iv = oracle('http://localhost:5000',authtoken) #sys.argv[0]
-    print(iv)
+    res = oracle(f'{BASE_URL}',bytes.fromhex(authtoken))
+    print(res)
+    print(len(res))
+    #plaintext = unpad(res, 16)
+    #print("Recovered plaintext:", plaintext)
 
 if __name__ == '__main__':
     #if len(sys.argv) != 2:
