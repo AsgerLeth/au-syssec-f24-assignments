@@ -35,13 +35,10 @@ def get_signature_for_hex_data(hex_data):
 
 
 m = "You got a 12 because you are an excellent student! :)"
-m1 = "You got a 1"  
-m2 = "2 because you are an excellent student! :)"  
-m1f,m2f = find_m1_m2(m,N)
-
-# Convert messages to hexadecimal
-m1_hex = m1f.encode().hex()
-m2_hex = bytes.hex(m2f) 
+m1,m2 = find_m1_m2(m,N)
+#Convert to hex
+m1_hex = m1.encode().hex()
+m2_hex = bytes.hex(m2) 
 
 # Get signatures from the server for m1 and m2
 s1_hex = get_signature_for_hex_data(m1_hex)
@@ -55,9 +52,8 @@ s2 = int(s2_hex, 16)
 combined_signature_int = combine_signatures(s1, s2)
 combined_signature_hex = hex(combined_signature_int)[2:]
 
-# Prepare cookie content with the combined message and forged signature
-combined_message = m1 + m2
-cookie_content = json.dumps({'msg': combined_message.encode().hex(), 'signature': combined_signature_hex})
+# Prepare cookie content with the message and forged signature
+cookie_content = json.dumps({'msg': m.encode().hex(), 'signature': combined_signature_hex})
 cookie_base64 = base64.b64encode(cookie_content.encode(), altchars=b'-_').decode()
 
 # Set forged grade cookie
