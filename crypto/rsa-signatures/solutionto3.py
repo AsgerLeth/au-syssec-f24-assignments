@@ -64,7 +64,7 @@ def emsa_pss_encode(M, emBits, sLen = 32, maskGenFunc=mgf1, hash=hashlib.sha256)
     mHash = hash(M).digest()
     hLen = len(mHash)
     if emLen < hLen + 2 + 8:
-        raise ValueError("encoding error")
+        return "inconsistent"
     salt = i2osp(random.getrandbits(8*sLen), sLen)
     M_prime = b"\x00"*8 + mHash + salt
     H = hash(M_prime).digest()
@@ -174,12 +174,11 @@ def verify_signature(public_key, message, signature, modBits):
         return "invalid signature"
 
 message = b"Hel"
-modBits = public_key[0].bit_length() - 1  # Effective modulus bits
+modBits = public_key[0].bit_length()
 print("efter embits")
 encoded_message = emsa_pss_encode(message, modBits)
 print("efter encoded")
 s = os2ip(encoded_message)
-print(pow(s, private_key[1], private_key[0]))
 print("efter s")
 signature = i2osp(s, len(encoded_message))
 print("signature:" , signature)
