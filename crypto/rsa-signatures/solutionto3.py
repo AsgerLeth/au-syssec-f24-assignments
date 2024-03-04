@@ -83,7 +83,7 @@ def emsa_pss_verify(M, EM, emBits, sLen):
     """Verify an RSA-PSS signature."""
     hash_func = hashlib.sha256
     hLen = hash_func().digest_size  # Length of hash output in bytes
-    print("EMverify",EM)
+    print("VerEM",EM)
 
     # Step 1: Length checking for the message against hash function limitation
     if len(M) > (2**256 - 1):
@@ -144,7 +144,11 @@ def emsa_pss_verify(M, EM, emBits, sLen):
         return "inconsistent"
 
 def verify_signature(public_key, message, signature, modBits):
-    n, e = public_key
+    #n, e = public_key
+    modBits = public_key[0].bit_length()
+    
+    n = public_key[0]
+    e = public_key[1]
     k = len(signature)
     # Step 1: Length checking
     if len(signature) != k:
@@ -157,6 +161,7 @@ def verify_signature(public_key, message, signature, modBits):
         return "invalid signature"
     m = pow(s, e, n)  # RSA verification primitive
     emLen = ceil(((modBits - 1) / 8))
+    #emLen = (modBits - 1) // 8 + ((modBits - 1) % 8 > 0)
     #print("emlen", emLen)
     EM = i2osp(m, emLen)  # Convert message representative to encoded message
     #EM = emsa_pss_encode(message, modBits - 1, sLen=32)
@@ -169,12 +174,14 @@ def verify_signature(public_key, message, signature, modBits):
         return "invalid signature"
 
 message = b"Hel"
-emBits = public_key[0].bit_length() - 1  # Effective modulus bits
+modBits = public_key[0].bit_length() - 1  # Effective modulus bits
 print("efter embits")
-encoded_message = emsa_pss_encode(message, emBits)
+encoded_message = emsa_pss_encode(message, modBits)
 print("efter encoded")
 s = os2ip(encoded_message)
+print(pow(s, private_key[1], private_key[0]))
 print("efter s")
 signature = i2osp(s, len(encoded_message))
-signatureres = verify_signature(public_key, message, signature, emBits)
+print("signature:" , signature)
+signatureres = verify_signature(public_key, message, signature, modBits)
 print("signatureres", signatureres)
