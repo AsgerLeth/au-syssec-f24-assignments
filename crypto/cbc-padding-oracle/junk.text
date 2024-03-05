@@ -18,3 +18,55 @@
                 #print(candidate)
                 #print(response.text)
                 #print(len(authtoken))
+
+
+secret = b'I should have used authenticated encryption because ...'
+    known_plaintext = b'You never figure out that "I should have used authenticated encryption because ...". :)'
+    block_size = 16
+    ciphertext_blocks = [authtoken[i:i+block_size] for i in range(0, len(authtoken), block_size)]
+    block_index = known_plaintext.index(secret) // block_size
+
+    # Replace the IV of this block with the corresponding zero_iv
+    new_ciphertext = authtoken[:]
+    new_ciphertext[block_index - 1] = zero_iv[block_index - 1]
+
+    # Convert new_ciphertext_blocks to hex strings
+    new_ciphertext = ''.join(block.hex() for block in new_ciphertext)
+
+    response = requests.get(f'{BASE_URL}/quote/', cookies={'authtoken': new_ciphertext})
+    print(response.text)
+
+    '''
+    block_size = 16
+    authtoken = bytes.fromhex(authtoken)
+    ciphertext = [authtoken[i:i+block_size] for i in range(0, len(authtoken), block_size)]
+    known_plaintext = unpad(res,16)
+    #known_plaintext = b'You never figure out that "I should have used authenticated encryption because ...". :)'
+    new_plaintext = secret + b' john diller man'
+    if new_plaintext.__len__() % 16 != 0: # If the length of the new plaintext is not a multiple of 16
+        new_plaintext = pad(new_plaintext, 16)
+    #new_ciphertext = create_new_ciphertext(ciphertext, known_plaintext, new_plaintext)
+    print(f"Known plaintext: {known_plaintext}", type(known_plaintext))
+    print(f"New plaintext: {new_plaintext}", type (new_plaintext))
+    print(f"Ciphertext: {ciphertext}")
+    # Convert ciphertext to bytes
+
+    # Split known_plaintext and new_plaintext into blocks
+    known_plaintext_blocks = [known_plaintext[i:i+block_size] for i in range(0, len(known_plaintext), block_size)]
+    new_plaintext_blocks = [new_plaintext[i:i+block_size] for i in range(0, len(new_plaintext), block_size)]
+    print(f"Known plaintext2: {known_plaintext}", type(known_plaintext))
+    print(f"New plaintext2: {new_plaintext}", type (new_plaintext))
+    #print(f"Ciphertext2: {ciphertext}")
+    # Create new ciphertext
+    new_ciphertext_blocks = [create_new_ciphertext(block, kp, np) 
+                            for block, kp, np in zip(ciphertext, known_plaintext_blocks, new_plaintext_blocks)]
+
+    print("trash1",new_ciphertext_blocks, type(new_ciphertext_blocks))
+    # Convert new_ciphertext_blocks to hex strings
+    #new_ciphertext = bytes(block for block in new_ciphertext_blocks)
+
+    new_ciphertext = bytes().join(block for block in new_ciphertext_blocks)
+    print("trash",new_ciphertext, type(new_ciphertext))
+    response = requests.get(f'{BASE_URL}/quote/', cookies={'authtoken': bytes(new_ciphertext).hex()})
+    print(response.text)
+    '''

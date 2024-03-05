@@ -130,6 +130,21 @@ def rsa_verify(public_key, message, signature, emBits):
     # Step 3: EMSA-PSS verification
     return emsa_pss_verify(message, EM, emBits)
 
+def rsa_sign(private_key, message, emBits):
+    n, d = private_key
+    m = os2ip(message)
+    k = len(message)
+    # Step 1: Length checking
+    if len(message) != k:
+        print("invalid message length")
+        return "invalid message"
+    # Step 2: RSA signing
+    if m >= n:
+        return False
+    s = pow(m, d, n)
+    signature = i2osp(s, ceil(emBits / 8))
+    return signature
+
 # Generate an RSA keypair
 public_key, private_key = generate_rsa_keypair()
 
@@ -145,6 +160,10 @@ s = os2ip(encoded_message)
 signature = pow(s, private_key[1], private_key[0])
 signature_bytes = i2osp(signature, ceil(emBits / 8))
 
+# Sign the message
+signature = rsa_sign(private_key, encoded_message, emBits)
+
 # Verify the signature
-valid_signature = rsa_verify(public_key, message, signature_bytes, emBits)
+#valid_signature = rsa_verify(public_key, message, signature_bytes, emBits)
+valid_signature = rsa_verify(public_key, message, signature, emBits)
 print("result",valid_signature)
