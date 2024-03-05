@@ -15,7 +15,6 @@ def oracle(url, ciphertext):
             padding_iv = [pad_val ^ b for b in zero_iv] # Create the padding IV
             
             for candidate in range(256):
-                #print(f"Trying byte {candidate} (0x{candidate:02x}) for padding value {pad_val}")
                 padding_iv[-pad_val] = candidate
                 response = requests.get(f'{url}/quote/', cookies={'authtoken': (bytes(padding_iv) + block).hex()})
                 temp = None
@@ -24,7 +23,6 @@ def oracle(url, ciphertext):
                 else:
                     temp = True
                 if temp: # IF the padding is correct then we can break
-                    #print(f"Padding is correct for byte {candidate} (0x{candidate:02x})")
                     if pad_val == 1:
                         # make sure the padding really is of length 1 by changing
                         # the penultimate block and querying the oracle again
