@@ -5,6 +5,7 @@ import struct
 import os
 import time
 from scapy.all import *
+import ssl # for wrapping the socket
 
 TUNSETIFF = 0x400454ca
 IFF_TUN   = 0x0001
@@ -28,16 +29,29 @@ print("Interface Name: {}".format(ifname))
 os.system("ip addr add 192.168.53.99/24 dev {}".format(ifname))
 os.system("ip link set dev {} up".format(ifname))
 
+SERVER_IP   = "10.9.0.11"
+SERVER_PORT = 9090
 
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-SERVER_IP   = "10.9.0.11"
-SERVER_PORT = 9090
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+# Load the trusted CA certificates
+context.load_verify_locations('/path/to/ca/cert.pem')
+
+# Create a secure (SSL/TLS) socket
+secure_sock = context.wrap_socket(sock, server_hostname=SERVER_IP)
+
+# Connect to the server
+secure_sock.connect((SERVER_IP, SERVER_PORT))
+cert = secure_sock.getpeercert() # get the server's certificate
 
 while True:
    # Get a packet from the tun interface
    packet = os.read(tun, 2048)
    if packet:
       # Send the packet via the tunnel
-      sock.sendto(packet, (SERVER_IP, SERVER_PORT))    
+      # sock.sendto(packet, (SERVER_IP, SERVER_PORT))
+      # Send the packet via the secure tunnel
+      secure_sock.sendall(packet)
