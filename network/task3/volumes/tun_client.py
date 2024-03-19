@@ -33,25 +33,28 @@ SERVER_IP   = "10.9.0.11"
 SERVER_PORT = 9090
 
 # Create UDP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 # Load the trusted CA certificates
-context.load_verify_locations('/path/to/ca/cert.pem')
+context.load_verify_locations('server-cert.pem')
 
 # Create a secure (SSL/TLS) socket
 secure_sock = context.wrap_socket(sock, server_hostname=SERVER_IP)
 
 # Connect to the server
 secure_sock.connect((SERVER_IP, SERVER_PORT))
-cert = secure_sock.getpeercert() # get the server's certificate
+#cert = secure_sock.getpeercert() # get the server's certificate
 
 while True:
    # Get a packet from the tun interface
+   print("Waiting for packet from tun interface")
+   #secure_sock.send("Hej".encode())
    packet = os.read(tun, 2048)
+   print("Packet received from tun interface", packet)
    if packet:
-      # Send the packet via the tunnel
-      # sock.sendto(packet, (SERVER_IP, SERVER_PORT))
       # Send the packet via the secure tunnel
+      #secure_sock.send("Hej".encode())
       secure_sock.sendall(packet)
+      print("Packet sent to the server", packet)
