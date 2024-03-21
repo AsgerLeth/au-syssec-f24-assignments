@@ -53,8 +53,6 @@ try:
                 if not data:
                     break  # Break the inner loop if no data received
                 print("Data received from client:", data)
-                #print("Data received from {}:{}".format(ip, port))
-                #print("{}:{} --> {}:{}".format(ip, port, IP_A, PORT))
                 pkt = IP(data)
                 print(" Inside: {} --> {}".format(pkt.src, pkt.dst))
                 os.write(tun, bytes(pkt))
