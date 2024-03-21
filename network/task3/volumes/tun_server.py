@@ -26,9 +26,6 @@ print("Interface Name: {}".format(ifname_bytes.decode("UTF-8")))
 # Configure the TUN interface
 os.system("ifconfig g60 10.9.0.1 netmask 255.255.255.0 up") #10.8.0.1 
 
-# Create UDP socket
-#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
 # Load the server's certificate and private key
