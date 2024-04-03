@@ -32,7 +32,7 @@ os.system("ip link set dev {} up".format(ifname))
 SERVER_IP   = "10.9.0.11"
 SERVER_PORT = 9090
 
-# Create UDP socket
+# Create TCP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
