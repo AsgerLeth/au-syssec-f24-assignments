@@ -87,19 +87,15 @@ def padding_oracle_attack(url, ciphertext):
         iv = block
     return result
 
-def create_new_ciphertext(original_ciphertext, original_iv, known_plaintext, new_plaintext):
-
-    print(original_ciphertext)
-    print(original_iv)
-    print(known_plaintext)
-    print(new_plaintext)
-    # XOR the known plaintext with the known ciphertext
-    intermediate_value = bytes(a ^ b for a, b in zip(bytes.fremhex(original_ciphertext[-1]), pad(known_plaintext,16)))
-    
-    # XOR the intermediate value with the new plaintext
-    new_ciphertext = bytes(a ^ b for a, b in zip(intermediate_value, pad(new_plaintext,16)))
-    print(len(new_ciphertext))
-    return new_ciphertext
+def create_new_ciphertext(URL, new_plaintext):
+    block_size = 16
+    plain_blocks = [new_plaintext[i:i+block_size] for i in range(0, len(new_plaintext), block_size)]
+    # Random chiptext for the last block
+    last_block = bytes([0] * 16)
+    for block in reversed(plain_blocks[:-1]):
+        last_block = xor(block, last_block)
+        last_block = encrypt_block(URL, last_block)
+    return ciphertext
 
 
 def main():
