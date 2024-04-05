@@ -2,6 +2,7 @@ import sys
 import requests
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
 
 def oracle(url, ciphertext):
     block_size = 16
@@ -89,18 +90,22 @@ def padding_oracle_attack(url, ciphertext):
 
 def create_new_ciphertext(URL, new_plaintext):
     block_size = 16
-    plain_blocks = [new_plaintext[i:i+block_size] for i in range(0, len(new_plaintext), block_size)]
-    # Random chiptext for the last block
-    last_block = bytes([0] * 16)
-    for block in reversed(plain_blocks[:-1]):
-        last_block = xor(block, last_block)
-        last_block = encrypt_block(URL, last_block)
-    return ciphertext
+    new_plaintext = pad(new_plaintext, block_size)
+    M = [new_plaintext[i:i+block_size] for i in range(0, len(new_plaintext), block_size)]
+    C_n = get_random_bytes(16)
+    result = b'' + C_n
+    for block in reversed(M):
+        P_n = oracle_attack_decrypt(URL, C_n)
+        C_n1 = bytes(a ^ b for a,b in zip(P_n, block))
+        result = C_n1 + result
+        C_n = C_n1
+    
+    return result
 
 
 def main():
-    BASE_URL = 'http://localhost:5000'
-    #BASE_URL = 'https://cbc-rsa.syssec.dk:8000/'
+    #BASE_URL = 'http://localhost:5000'
+    BASE_URL = 'https://cbc-rsa.syssec.dk:8000/'
     cookie = requests.get(f'{BASE_URL}') # base_url is the first argument
     cookie_header = cookie.headers.get('Set-Cookie') # get the cookie header
     authtoken = cookie_header.split('=')[1].split(';')[0] # get the authtoken
@@ -108,23 +113,16 @@ def main():
     print("Recovered plaintext:", unpad(res,16))
     secret = res.split(b'"')[1]
     print("Secret:", secret)
-    """
-    # Extract the IV from the authtoken
-    iv = bytes.fromhex(authtoken[:32])  # Assuming the IV is the first 16 bytes of the authtoken
 
-    # Forge a new ciphertext with the desired plaintext and extracted IV
-    desired_plaintext = secret + bytes(' plain CBC is not secure!', 'utf-8')
-    #desired_plaintext = pad(desired_plaintext, 16)
-    print(len(desired_plaintext))
-    #new_ciphertext = create_new_ciphertext(authtoken, res, desired_plaintext)  # Include the IV in the ciphertext
-    new_ciphertext = create_new_ciphertext(authtoken, iv, unpad(res,16), desired_plaintext)
-    # Print or use the new ciphertext
-    print("New Ciphertext:", new_ciphertext)
-
-    # Send the forged ciphertext to the server and observe the response
-    response = requests.get(f'{BASE_URL}/quote/', cookies={'authtoken': new_ciphertext.hex()})
+    # Create a new plaintext
+    new_plain = secret + ' plain CBC is not secure!'
+    print(len(new_plain), type(new_plain),len(bytes(new_plain, 'utf-8')))
+    new_plain_bytes = bytes(new_plain, 'utf-8')
+    res = create_new_ciphertext(BASE_URL, new_plain_bytes)
+    print("Encrypted plaintext:", res)
+    # Get quote
+    response = requests.get(f'{BASE_URL}/quote/', cookies={'authtoken': res.hex()})
     print(response.text)
-    """ 
-
+    
 if __name__ == '__main__':
     main()
